@@ -1,4 +1,5 @@
 import {
+  bigserial,
   boolean,
   doublePrecision,
   index,
@@ -101,6 +102,13 @@ export const auditEvents = pgTable(
   'audit_events',
   {
     id: text('id').primaryKey(),
+    /**
+     * Total order for the append-only log. `created_at` alone is not enough:
+     * several events in one turn can land in the same timestamp tick, and a
+     * dispute ("was success reported before the tx confirmed?") is answered by
+     * ordering, so the ordering must not depend on clock resolution.
+     */
+    seq: bigserial('seq', { mode: 'number' }).notNull(),
     userId: text('user_id'),
     executionId: text('execution_id'),
     suggestionId: text('suggestion_id'),

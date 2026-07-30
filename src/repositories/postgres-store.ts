@@ -386,11 +386,12 @@ export class PostgresStore implements Store {
     const conditions = [];
     if (filter.userId) conditions.push(eq(auditEvents.userId, filter.userId));
     if (filter.executionId) conditions.push(eq(auditEvents.executionId, filter.executionId));
+    // Ordered by the sequence column, not the timestamp — see schema.ts.
     const rows = await this.db
       .select()
       .from(auditEvents)
       .where(conditions.length ? and(...conditions) : undefined)
-      .orderBy(desc(auditEvents.createdAt))
+      .orderBy(desc(auditEvents.seq))
       .limit(filter.limit ?? 100);
     return rows.map((r) => ({
       id: r.id,

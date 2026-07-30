@@ -20,7 +20,6 @@ export async function buildApp(): Promise<FastifyInstance> {
   // otherwise leaks the specialisation into every route module's signature.
   const app: FastifyInstance = Fastify({
     loggerInstance: logger as unknown as FastifyBaseLogger,
-    disableRequestLogging: false,
   });
 
   await app.register(cors, { origin: true });
@@ -30,13 +29,39 @@ export async function buildApp(): Promise<FastifyInstance> {
     prefix: '/',
   });
 
+  // The action endpoints (confirm / dismiss / place) take no body, but clients
+  // routinely send `content-type: application/json` on every POST. Fastify's
+  // default parser rejects that combination outright, so treat an empty body as
+  // an empty object rather than a 400 the caller cannot act on.
+  app.addContentTypeParser('application/json', { parseAs: 'string' }, (_request, body, done) => {
+    const raw = typeof body === 'string' ? body.trim() : '';
+    if (!raw) return done(null, {});
+    try {
+      done(null, JSON.parse(raw));
+    } catch {
+      done(new AppError('bad_request', 'Request body is not valid JSON'), undefined);
+    }
+  });
+
   app.setErrorHandler((err, request, reply) => {
     if (err instanceof AppError) {
       request.log.warn({ code: err.code, detail: err.detail }, err.message);
       return reply.status(err.httpStatus).send({ error: { code: err.code, message: err.message, detail: err.detail } });
     }
-    request.log.error({ err }, 'Unhandled error');
-    return reply.status(500).send({ error: { code: 'internal_error', message: 'Something went wrong' } });
+    // Framework errors (validation, payload limits) carry their own status —
+    // collapsing them to 500 would tell the client to retry an unfixable request.
+    const status = typeof err.statusCode === 'number' && err.statusCode >= 400 && err.statusCode < 500
+      ? err.statusCode
+      : 500;
+    if (status >= 500) request.log.error({ err }, 'Unhandled error');
+    else request.log.warn({ err: err.message, code: err.code }, 'Request rejected');
+
+    return reply.status(status).send({
+      error: {
+        code: err.code ?? (status >= 500 ? 'internal_error' : 'bad_request'),
+        message: status >= 500 ? 'Something went wrong' : err.message,
+      },
+    });
   });
 
   // Identity is resolved once, before any route body runs, so no route can

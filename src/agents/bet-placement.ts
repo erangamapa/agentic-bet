@@ -35,7 +35,7 @@ import { renderContent } from './analyst.js';
  * the size or target of a bet, whether by mistake, by hallucination, or because
  * something upstream told it to.
  */
-function buildBetPlacementTools(ctx: TraceContext, grant: ExecutionGrant): StructuredToolInterface[] {
+export function buildBetPlacementTools(ctx: TraceContext, grant: ExecutionGrant): StructuredToolInterface[] {
   const quote = tool(
     async ({ marketId, selectionId, stake, fromSuggestionId }: {
       marketId: string;

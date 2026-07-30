@@ -96,6 +96,7 @@ const statements: string[] = [
 
   `CREATE TABLE IF NOT EXISTS audit_events (
      id text PRIMARY KEY,
+     seq bigserial NOT NULL,
      user_id text,
      execution_id text,
      suggestion_id text,
@@ -110,6 +111,7 @@ const statements: string[] = [
   `CREATE INDEX IF NOT EXISTS audit_user_idx ON audit_events (user_id)`,
   `CREATE INDEX IF NOT EXISTS audit_execution_idx ON audit_events (execution_id)`,
   `CREATE INDEX IF NOT EXISTS audit_kind_idx ON audit_events (kind)`,
+  `CREATE INDEX IF NOT EXISTS audit_seq_idx ON audit_events (seq DESC)`,
 
   `CREATE TABLE IF NOT EXISTS token_usage (
      id text PRIMARY KEY,

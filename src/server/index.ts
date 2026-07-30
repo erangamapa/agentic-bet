@@ -2,6 +2,7 @@ import { env, hasDatabase } from '../config/env.js';
 import { logger } from '../observability/logger.js';
 import { initTracing } from '../observability/tracing.js';
 import { ensureSeedData } from '../db/seed.js';
+import { describeToolCatalog } from '../agents/tool-catalog.js';
 import { buildApp } from './app.js';
 
 async function main(): Promise<void> {
@@ -9,6 +10,18 @@ async function main(): Promise<void> {
 
   // Demo markets and social content. Idempotent, and a no-op if data exists.
   await ensureSeedData();
+
+  // Boot-time privilege assertion: a mis-wired tool crashes startup rather than
+  // surfacing mid-conversation with a user's money involved.
+  const catalog = describeToolCatalog();
+  logger.info(
+    {
+      component: 'privilege',
+      tools: catalog.map((t) => `${t.name}:${t.clearance}`),
+      executeTools: catalog.filter((t) => t.clearance === 'execute').map((t) => t.name),
+    },
+    'Tool privilege catalog verified',
+  );
 
   const app = await buildApp();
 

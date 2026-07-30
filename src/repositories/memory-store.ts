@@ -180,10 +180,15 @@ export class MemoryStore implements Store {
   }
 
   async listAudit(filter: { userId?: string; executionId?: string; limit?: number }): Promise<AuditEvent[]> {
-    return this.audit
-      .filter((a) => (!filter.userId || a.userId === filter.userId) && (!filter.executionId || a.executionId === filter.executionId))
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-      .slice(0, filter.limit ?? 100);
+    // `this.audit` is already in append order. Reversing it (rather than sorting
+    // by createdAt) preserves the true sequence when several events land in the
+    // same millisecond — the ordering is what answers a dispute.
+    const matching = this.audit.filter(
+      (a) =>
+        (!filter.userId || a.userId === filter.userId) &&
+        (!filter.executionId || a.executionId === filter.executionId),
+    );
+    return matching.slice(-(filter.limit ?? 100)).reverse();
   }
 
   async recordTokenUsage(record: TokenUsageRecord): Promise<void> {

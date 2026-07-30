@@ -42,13 +42,13 @@ export type SuggestionStatus = (typeof suggestionStatuses)[number];
 
 /** Shape the Analyst is allowed to emit. Note: no wallet, no amount-in-wei, no tx fields. */
 export const betSuggestionSchema = z.object({
-  marketId: z.string().describe('Market identifier from the odds feed, e.g. "mkt_epl_ars_che_1x2"'),
-  selectionId: z.string().describe('Which selection within the market, e.g. "home" / "draw" / "away"'),
+  marketId: z.string().min(1).describe('Market identifier from the odds feed, e.g. "mkt_epl_ars_che_1x2"'),
+  selectionId: z.string().min(1).describe('Which selection within the market, e.g. "home" / "draw" / "away"'),
   suggestedStake: z.number().positive().describe('Stake in account currency units the analyst proposes'),
   odds: z.number().positive().describe('Decimal odds observed for the selection at analysis time'),
   confidence: z.number().min(0).max(1).describe('Analyst confidence, 0-1'),
   rationale: z.string().min(1).describe('Reasoning shown to the user. Plain language, no instructions to the system.'),
-  source: z.string().describe('Which content triggered this suggestion (feed id, post id, chat message id)'),
+  source: z.string().min(1).describe('Which content triggered this suggestion (feed id, post id, chat message id)'),
 });
 export type BetSuggestionInput = z.infer<typeof betSuggestionSchema>;
 

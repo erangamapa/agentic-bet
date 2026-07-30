@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { z } from 'zod';
 import { newTraceContext } from '../../observability/tracing.js';
 import { requestExecutionGrant } from '../../agents/privilege.js';
 import {
@@ -9,9 +10,54 @@ import {
   listPendingSuggestions,
   listUserExecutions,
   placeConfirmedBet,
+  quoteBet,
 } from '../../services/betting.js';
 
+const quoteBody = z.object({
+  marketId: z.string().min(1),
+  selectionId: z.string().min(1),
+  stake: z.number().positive(),
+});
+
 export async function registerBetRoutes(app: FastifyInstance): Promise<void> {
+  /**
+   * Bet-slip path: the user picked a selection and a stake in the UI without
+   * going through chat. It calls the same `quoteBet` service the Bet Placement
+   * Agent's `quote_bet` tool calls, so the same limits apply and the same
+   * confirmation flow follows. The UI is a different way in, not a different
+   * set of rules.
+   */
+  app.post('/api/suggestions', async (request, reply) => {
+    const parsed = quoteBody.safeParse(request.body);
+    if (!parsed.success) {
+      return reply
+        .status(400)
+        .send({ error: { code: 'bad_request', message: 'marketId, selectionId and stake are required' } });
+    }
+
+    const quote = await quoteBet({
+      userId: request.userId,
+      marketId: parsed.data.marketId,
+      selectionId: parsed.data.selectionId,
+      stake: parsed.data.stake,
+      channel: 'web',
+      rationale: 'Built from the bet slip.',
+      source: 'web_bet_slip',
+    });
+
+    return reply.status(201).send({
+      suggestionId: quote.suggestionId,
+      confirmCode: quote.confirmCode,
+      fixture: quote.fixture,
+      selection: quote.selectionLabel,
+      stake: quote.stake,
+      odds: quote.odds,
+      potentialReturn: quote.potentialReturn,
+      expiresAt: quote.expiresAt,
+      limits: quote.limits,
+    });
+  });
+
   app.get('/api/suggestions', async (request, reply) => {
     const suggestions = await listPendingSuggestions(request.userId, 20);
     return reply.send({

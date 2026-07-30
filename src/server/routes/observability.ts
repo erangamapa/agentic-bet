@@ -1,7 +1,8 @@
 import type { FastifyInstance } from 'fastify';
 import { getStore } from '../../repositories/index.js';
 import { traceUrl } from '../../observability/tracing.js';
-import { registeredToolClearances, roleClearance } from '../../agents/privilege.js';
+import { roleClearance } from '../../agents/privilege.js';
+import { describeToolCatalog } from '../../agents/tool-catalog.js';
 import { env } from '../../config/env.js';
 
 export async function registerObservabilityRoutes(app: FastifyInstance): Promise<void> {
@@ -63,7 +64,7 @@ export async function registerObservabilityRoutes(app: FastifyInstance): Promise
    * is a one-line check against this payload.
    */
   app.get('/api/architecture', async (_request, reply) => {
-    const tools = [...registeredToolClearances().entries()].map(([name, clearance]) => ({ name, clearance }));
+    const tools = describeToolCatalog();
     return reply.send({
       executionMode: env.EXECUTION_MODE,
       roles: Object.entries(roleClearance).map(([role, clearance]) => ({

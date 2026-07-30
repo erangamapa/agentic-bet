@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>agentic-bet — social betting assistant</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="dot"></span>
+        agentic&#8203;-bet
+      </div>
+      <div class="topbar-meta">
+        <label class="user-field">
+          user
+          <input id="user-id" value="usr_demo" spellcheck="false" />
+        </label>
+        <span id="mode-badge" class="badge">…</span>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="chat-pane">
+        <div id="messages" class="messages">
+          <div class="msg assistant">
+            <div class="bubble">
+              <p>
+                Ask me about a match, a price, or what the chatter says. I'll bring in the analyst for anything
+                analytical, and the bet placement agent for anything involving money.
+              </p>
+              <p class="muted">Nothing is ever staked without you confirming it first.</p>
+            </div>
+          </div>
+        </div>
+
+        <form id="composer" class="composer">
+          <input
+            id="input"
+            autocomplete="off"
+            placeholder="e.g. what do you make of Arsenal vs Chelsea?"
+            aria-label="Message"
+          />
+          <button type="submit" id="send">Send</button>
+        </form>
+        <div class="suggest-row">
+          <button class="chip" data-prompt="What do you make of Arsenal vs Chelsea tomorrow?">Analyse a match</button>
+          <button class="chip" data-prompt="Is there any value on the Celtics tonight? Check the social chatter too.">
+            Check the chatter
+          </button>
+          <button class="chip" data-prompt="Put 25 on Arsenal to win.">Place a bet</button>
+          <button class="chip" data-prompt="What are my stake limits?">My limits</button>
+        </div>
+      </section>
+
+      <aside class="side">
+        <div class="panel">
+          <div class="panel-head"><h2>Build a bet</h2></div>
+          <div class="panel-body">
+            <form id="builder" class="builder">
+              <select id="b-market" aria-label="Market"></select>
+              <select id="b-selection" aria-label="Selection"></select>
+              <div class="builder-row">
+                <input id="b-stake" type="number" min="1" step="1" value="25" aria-label="Stake" />
+                <button type="submit">Quote</button>
+              </div>
+            </form>
+            <p id="builder-msg" class="empty"></p>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <h2>Bet slip</h2>
+            <button class="ghost" id="refresh-slip" title="Refresh">↻</button>
+          </div>
+          <div id="slip" class="panel-body">
+            <p class="empty">Nothing awaiting confirmation.</p>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head"><h2>Bets</h2></div>
+          <div id="bets" class="panel-body">
+            <p class="empty">No bets yet.</p>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <h2>Agent trace</h2>
+            <button class="ghost" id="refresh-audit" title="Refresh">↻</button>
+          </div>
+          <div id="audit" class="panel-body audit">
+            <p class="empty">No activity yet.</p>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head"><h2>Token cost by role</h2></div>
+          <div id="usage" class="panel-body">
+            <p class="empty">No LLM calls yet.</p>
+          </div>
+        </div>
+      </aside>
+    </main>
+
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>
