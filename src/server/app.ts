@@ -50,16 +50,19 @@ export async function buildApp(): Promise<FastifyInstance> {
     }
     // Framework errors (validation, payload limits) carry their own status —
     // collapsing them to 500 would tell the client to retry an unfixable request.
-    const status = typeof err.statusCode === 'number' && err.statusCode >= 400 && err.statusCode < 500
-      ? err.statusCode
-      : 500;
+    const framework = err as { statusCode?: number; code?: string; message?: string };
+    const status =
+      typeof framework.statusCode === 'number' && framework.statusCode >= 400 && framework.statusCode < 500
+        ? framework.statusCode
+        : 500;
+
     if (status >= 500) request.log.error({ err }, 'Unhandled error');
-    else request.log.warn({ err: err.message, code: err.code }, 'Request rejected');
+    else request.log.warn({ err: framework.message, code: framework.code }, 'Request rejected');
 
     return reply.status(status).send({
       error: {
-        code: err.code ?? (status >= 500 ? 'internal_error' : 'bad_request'),
-        message: status >= 500 ? 'Something went wrong' : err.message,
+        code: framework.code ?? (status >= 500 ? 'internal_error' : 'bad_request'),
+        message: status >= 500 ? 'Something went wrong' : (framework.message ?? 'Bad request'),
       },
     });
   });

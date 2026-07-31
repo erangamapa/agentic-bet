@@ -158,6 +158,13 @@ export class MemoryStore implements Store {
       .slice(0, opts?.limit ?? 20);
   }
 
+  async listPendingExecutions(limit = 50): Promise<BetExecution[]> {
+    return [...this.executions.values()]
+      .filter((e) => e.txStatus === 'pending')
+      .sort((a, b) => a.updatedAt.getTime() - b.updatedAt.getTime())
+      .slice(0, limit);
+  }
+
   async countOpenExecutions(userId: string): Promise<number> {
     return [...this.executions.values()].filter((e) => e.userId === userId && e.txStatus === 'pending').length;
   }

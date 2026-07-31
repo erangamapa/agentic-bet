@@ -3,6 +3,7 @@ import { logger } from '../observability/logger.js';
 import { initTracing } from '../observability/tracing.js';
 import { ensureSeedData } from '../db/seed.js';
 import { describeToolCatalog } from '../agents/tool-catalog.js';
+import { startReconciler } from '../services/reconciler.js';
 import { buildApp } from './app.js';
 
 async function main(): Promise<void> {
@@ -23,6 +24,8 @@ async function main(): Promise<void> {
     'Tool privilege catalog verified',
   );
 
+  const stopReconciler = startReconciler();
+
   const app = await buildApp();
 
   await app.listen({ port: env.PORT, host: '0.0.0.0' });
@@ -38,6 +41,7 @@ async function main(): Promise<void> {
 
   const shutdown = async (signal: string) => {
     logger.info({ component: 'server', signal }, 'Shutting down');
+    stopReconciler();
     await app.close();
     process.exit(0);
   };

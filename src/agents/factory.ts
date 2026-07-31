@@ -1,6 +1,7 @@
 import { createAgent, modelFallbackMiddleware, type ReactAgent } from 'langchain';
 import type { StructuredToolInterface } from '@langchain/core/tools';
 import type { BaseCallbackHandler } from '@langchain/core/callbacks/base';
+import type { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import { buildModel, resolveModelChain, type ModelSpec } from '../llm/models.js';
 import type { AgentRole } from '../domain/types.js';
 import { logger } from '../observability/logger.js';
@@ -16,6 +17,20 @@ export interface BuiltAgent {
   toolSchemaTokens: number;
   toolNames: string[];
   modelChain: ModelSpec[];
+}
+
+/**
+ * Test seam: supplies a chat model per role instead of building a provider
+ * client. Null in production. It exists so the graph — delegation, tool calls,
+ * privilege checks — can be exercised deterministically and without an API key;
+ * the clearance assertions below still run unchanged when it is in use.
+ */
+type ModelFactoryOverride = (role: AgentRole) => BaseChatModel | null;
+
+let modelFactoryOverride: ModelFactoryOverride | null = null;
+
+export function setModelFactoryOverride(override: ModelFactoryOverride | null): void {
+  modelFactoryOverride = override;
 }
 
 export interface CreateScopedAgentOptions {
@@ -40,15 +55,21 @@ export interface CreateScopedAgentOptions {
  *    recorded alongside it, which is what makes the cost argument measurable.
  */
 export function createScopedAgent(opts: CreateScopedAgentOptions): BuiltAgent {
+  // Runs first, and unconditionally — a privilege mistake must never depend on
+  // which model or provider happens to be configured.
   assertToolsAllowedForRole(opts.role, opts.tools);
 
-  const modelChain = resolveModelChain(opts.preferredModel);
+  const injected = modelFactoryOverride?.(opts.role) ?? null;
+
+  const modelChain = injected ? [{ provider: 'anthropic' as const, model: 'injected', id: 'injected' }] : resolveModelChain(opts.preferredModel);
   const [primary, ...fallbacks] = modelChain;
 
-  const model = buildModel(primary!, {
-    ...(opts.temperature !== undefined ? { temperature: opts.temperature } : {}),
-    ...(opts.maxTokens !== undefined ? { maxTokens: opts.maxTokens } : {}),
-  });
+  const model =
+    injected ??
+    buildModel(primary!, {
+      ...(opts.temperature !== undefined ? { temperature: opts.temperature } : {}),
+      ...(opts.maxTokens !== undefined ? { maxTokens: opts.maxTokens } : {}),
+    });
 
   const toolSchemaTokens = estimateSchemaTokens(
     opts.tools.map((t) => ({ name: t.name, description: t.description, schema: t.schema })),

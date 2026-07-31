@@ -62,6 +62,8 @@ export interface Store {
   getExecutionByIdempotencyKey(key: string): Promise<BetExecution | null>;
   updateExecution(id: string, patch: Partial<BetExecution>): Promise<BetExecution>;
   listExecutions(userId: string, opts?: { limit?: number }): Promise<BetExecution[]>;
+  /** Across all users — the reconciler sweeps these, oldest first. */
+  listPendingExecutions(limit?: number): Promise<BetExecution[]>;
   countOpenExecutions(userId: string): Promise<number>;
   sumStakeSince(userId: string, since: Date): Promise<DailyStakeSummary>;
 

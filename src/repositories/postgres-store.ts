@@ -337,6 +337,16 @@ export class PostgresStore implements Store {
     return rows.map(mapExecution);
   }
 
+  async listPendingExecutions(limit = 50): Promise<BetExecution[]> {
+    const rows = await this.db
+      .select()
+      .from(betExecutions)
+      .where(eq(betExecutions.txStatus, 'pending'))
+      .orderBy(betExecutions.updatedAt)
+      .limit(limit);
+    return rows.map(mapExecution);
+  }
+
   async countOpenExecutions(userId: string): Promise<number> {
     const [row] = await this.db
       .select({ count: sql<number>`count(*)::int` })

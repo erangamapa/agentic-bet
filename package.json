@@ -20,7 +20,8 @@
     "db:seed": "tsx src/db/seed.ts",
     "telegram": "tsx src/telegram/index.ts",
     "chat": "tsx src/cli/chat.ts",
-    "verify:boundary": "LOG_LEVEL=silent tsx src/cli/verify-boundary.ts"
+    "verify:boundary": "LOG_LEVEL=silent tsx src/cli/verify-boundary.ts",
+    "verify:db": "LOG_LEVEL=silent tsx src/cli/verify-db.ts"
   },
   "dependencies": {
     "@fastify/cors": "^11.1.0",
