@@ -86,7 +86,22 @@ const envSchema = z.object({
   CONFIRMATION_TTL_SECONDS: num(900),
 
   TELEGRAM_BOT_TOKEN: clean,
+  /** Shared secret Telegram echoes back in X-Telegram-Bot-Api-Secret-Token. */
+  TELEGRAM_WEBHOOK_SECRET: clean,
   WEB_API_KEY: clean,
+
+  // --- deployment shape ----------------------------------------------------
+  /**
+   * `inline` runs the reconciler on an in-process timer (local dev).
+   * `external` disables it, for platforms that throttle CPU between requests —
+   * on Cloud Run a background timer does not reliably fire, so the sweep is
+   * driven by a Cloud Run Job on a Cloud Scheduler trigger instead.
+   */
+  RECONCILER_MODE: z.enum(['inline', 'external']).optional(),
+  /** Applying schema on every cold start is wasteful; deploy pipelines run it once. */
+  RUN_MIGRATIONS_ON_BOOT: bool.optional(),
+  /** Demo markets and social fixtures. Never wanted in production. */
+  SEED_DEMO_DATA: bool.optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -102,6 +117,18 @@ export const env: Env = parsed.data;
 
 export const isProduction = env.NODE_ENV === 'production';
 export const isTest = env.NODE_ENV === 'test';
+
+/**
+ * Deployment-shape defaults. Local development gets the convenient behaviour
+ * (timer-driven reconciler, auto-migrate, demo fixtures); production gets none
+ * of it unless explicitly asked for.
+ */
+export const reconcilerMode: 'inline' | 'external' =
+  env.RECONCILER_MODE ?? (isProduction ? 'external' : 'inline');
+
+export const runMigrationsOnBoot: boolean = env.RUN_MIGRATIONS_ON_BOOT ?? !isProduction;
+
+export const seedDemoData: boolean = env.SEED_DEMO_DATA ?? !isProduction;
 
 /** True when a real Neon/Postgres connection string is configured. */
 export const hasDatabase = Boolean(env.DATABASE_URL);

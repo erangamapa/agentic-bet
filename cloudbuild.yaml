@@ -1,0 +1,113 @@
+# Cloud Build pipeline: build once, migrate, then deploy the same image to both
+# the API service and the reconciler job.
+#
+#   gcloud builds submit --config cloudbuild.yaml \
+#     --substitutions=_REGION=europe-west1
+#
+# One image serves all three roles (server, reconcile job, migration) — they
+# differ only by the command they run, so there is no chance of the job running
+# a different build of the betting logic than the API.
+
+substitutions:
+  _REGION: europe-west1
+  _REPOSITORY: agentic-bet
+  _SERVICE: agentic-bet
+  _JOB: agentic-bet-reconciler
+  _SERVICE_ACCOUNT: agentic-bet-run
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: E2_HIGHCPU_8
+
+images:
+  - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/${_SERVICE}:${SHORT_SHA}
+  - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/${_SERVICE}:latest
+
+steps:
+  # -------------------------------------------------------------------------
+  - id: build
+    name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - --tag=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/${_SERVICE}:${SHORT_SHA}
+      - --tag=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/${_SERVICE}:latest
+      - --cache-from=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/${_SERVICE}:latest
+      - .
+
+  - id: push
+    name: gcr.io/cloud-builders/docker
+    args: [push, --all-tags, '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/${_SERVICE}']
+
+  # -------------------------------------------------------------------------
+  # Schema is applied once here rather than on every cold start. Uses a
+  # short-lived Cloud Run job execution so the migration runs with the same
+  # image and the same database credentials the service will use.
+  - id: migrate
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: bash
+    args:
+      - -euo
+      - pipefail
+      - -c
+      - |
+        gcloud run jobs deploy ${_SERVICE}-migrate \
+          --image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/${_SERVICE}:${SHORT_SHA} \
+          --region=${_REGION} \
+          --service-account=${_SERVICE_ACCOUNT}@${PROJECT_ID}.iam.gserviceaccount.com \
+          --set-secrets=DATABASE_URL=agentic-bet-database-url:latest \
+          --set-env-vars=NODE_ENV=production \
+          --command=node --args=dist/db/migrate.js \
+          --max-retries=1 --task-timeout=300s --quiet
+        gcloud run jobs execute ${_SERVICE}-migrate --region=${_REGION} --wait --quiet
+
+  # -------------------------------------------------------------------------
+  # timeout 300s: an agent turn chains several LLM calls and can legitimately
+  # run past the 60s default.
+  # cpu-throttling (the default) is correct now that no background timer runs
+  # in the service — the reconciler is the job below.
+  - id: deploy-service
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - ${_SERVICE}
+      - --image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/${_SERVICE}:${SHORT_SHA}
+      - --region=${_REGION}
+      - --platform=managed
+      - --service-account=${_SERVICE_ACCOUNT}@${PROJECT_ID}.iam.gserviceaccount.com
+      - --allow-unauthenticated
+      - --min-instances=0
+      - --max-instances=10
+      - --memory=1Gi
+      - --cpu=1
+      - --concurrency=40
+      - --timeout=300s
+      - --set-env-vars=NODE_ENV=production,LOG_LEVEL=info,EXECUTION_MODE=stub,RECONCILER_MODE=external,SEED_DEMO_DATA=false,RUN_MIGRATIONS_ON_BOOT=false,LANGSMITH_TRACING=true,LANGSMITH_PROJECT=agentic-bet
+      - --set-secrets=DATABASE_URL=agentic-bet-database-url:latest,ANTHROPIC_API_KEY=agentic-bet-anthropic-key:latest,WEB_API_KEY=agentic-bet-web-api-key:latest,LANGSMITH_API_KEY=agentic-bet-langsmith-key:latest,TELEGRAM_BOT_TOKEN=agentic-bet-telegram-token:latest,TELEGRAM_WEBHOOK_SECRET=agentic-bet-telegram-webhook-secret:latest
+      - --quiet
+
+  # -------------------------------------------------------------------------
+  # The reconciler. Same image, different command. Cloud Scheduler triggers it;
+  # authentication is pure IAM, so no token-verification code sits in the
+  # request path of the service that moves money.
+  - id: deploy-reconciler-job
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: gcloud
+    args:
+      - run
+      - jobs
+      - deploy
+      - ${_JOB}
+      - --image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/${_SERVICE}:${SHORT_SHA}
+      - --region=${_REGION}
+      - --service-account=${_SERVICE_ACCOUNT}@${PROJECT_ID}.iam.gserviceaccount.com
+      - --command=node
+      - --args=dist/cli/reconcile.js
+      - --set-env-vars=NODE_ENV=production,LOG_LEVEL=info,EXECUTION_MODE=stub
+      - --set-secrets=DATABASE_URL=agentic-bet-database-url:latest,CHAIN_RPC_URL=agentic-bet-chain-rpc-url:latest
+      - --max-retries=2
+      - --task-timeout=600s
+      - --quiet
+
+timeout: 1800s

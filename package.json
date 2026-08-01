@@ -21,7 +21,10 @@
     "telegram": "tsx src/telegram/index.ts",
     "chat": "tsx src/cli/chat.ts",
     "verify:boundary": "LOG_LEVEL=silent tsx src/cli/verify-boundary.ts",
-    "verify:db": "LOG_LEVEL=silent tsx src/cli/verify-db.ts"
+    "verify:db": "LOG_LEVEL=silent tsx src/cli/verify-db.ts",
+    "reconcile": "tsx src/cli/reconcile.ts",
+    "docker:build": "docker build -t agentic-bet:local .",
+    "docker:run": "docker run --rm -p 8080:8080 -e PORT=8080 --env-file .env agentic-bet:local"
   },
   "dependencies": {
     "@fastify/cors": "^11.1.0",

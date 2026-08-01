@@ -12,6 +12,7 @@ import { registerHealthRoutes } from './routes/health.js';
 import { registerObservabilityRoutes } from './routes/observability.js';
 import { registerMarketRoutes } from './routes/markets.js';
 import { requireUser } from './auth.js';
+import { registerTelegramWebhook } from '../telegram/webhook.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -77,6 +78,10 @@ export async function buildApp(): Promise<FastifyInstance> {
   await registerBetRoutes(app);
   await registerMarketRoutes(app);
   await registerObservabilityRoutes(app);
+
+  // Telegram runs as a webhook on this same service, so both front-ends are
+  // served by one deployment driving one agent graph.
+  await registerTelegramWebhook(app);
 
   app.get('/api', async () => ({
     service: 'agentic-bet',

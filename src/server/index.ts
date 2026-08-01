@@ -1,4 +1,4 @@
-import { env, hasDatabase } from '../config/env.js';
+import { env, hasDatabase, reconcilerMode } from '../config/env.js';
 import { logger } from '../observability/logger.js';
 import { initTracing } from '../observability/tracing.js';
 import { ensureSeedData } from '../db/seed.js';
@@ -24,7 +24,9 @@ async function main(): Promise<void> {
     'Tool privilege catalog verified',
   );
 
-  const stopReconciler = startReconciler();
+  // On a platform that throttles CPU between requests an in-process timer does
+  // not reliably fire, so production drives the sweep from a Cloud Run Job.
+  const stopReconciler = reconcilerMode === 'inline' ? startReconciler() : noReconciler();
 
   const app = await buildApp();
 
@@ -47,6 +49,14 @@ async function main(): Promise<void> {
   };
   process.on('SIGINT', () => void shutdown('SIGINT'));
   process.on('SIGTERM', () => void shutdown('SIGTERM'));
+}
+
+function noReconciler(): () => void {
+  logger.info(
+    { component: 'reconciler', mode: 'external' },
+    'In-process reconciler disabled — expecting an external scheduler to run the reconcile job',
+  );
+  return () => undefined;
 }
 
 main().catch((err) => {

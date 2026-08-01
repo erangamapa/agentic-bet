@@ -1,0 +1,12 @@
+# Mirrors .dockerignore: keep secrets and build artefacts out of the upload
+# that Cloud Build receives.
+.git
+.gitignore
+node_modules
+dist
+.env
+.env.*
+*.log
+coverage
+.vitest
+.DS_Store
