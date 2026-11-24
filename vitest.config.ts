@@ -8,6 +8,7 @@ export default defineConfig({
       NODE_ENV: 'test',
       LOG_LEVEL: 'silent',
       EXECUTION_MODE: 'stub',
+      ANTHROPIC_API_KEY: 'test-key-not-used',
     },
     // The privilege registry and store are process-global singletons; running
     // files in one thread keeps their reset semantics honest.
