@@ -207,3 +207,7 @@ tests/          80 tests incl. a scripted-model harness (no API key needed)
 | 7. Verify the three safety properties | Done — `npm run verify:boundary` |
 
 **Not yet done:** the `SocialBetBook` contract is written but not deployed, so `EXECUTION_MODE=onchain` is unexercised end-to-end (`stub` and the verification logic are fully tested). Load testing has not been run. Live LLM calls are unverified — the provided Anthropic key authenticates but the account has no credits, which is why the graph is tested through a scripted-model harness instead.
+
+## License
+
+MIT, see [LICENSE](./LICENSE).
