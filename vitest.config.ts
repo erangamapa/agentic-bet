@@ -13,7 +13,6 @@ export default defineConfig({
     // files in one thread keeps their reset semantics honest.
     pool: 'threads',
     maxWorkers: 1,
-    minWorkers: 1,
     fileParallelism: false,
   },
 });
